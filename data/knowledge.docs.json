@@ -1,0 +1,18 @@
+[
+    {
+      "id": "pix-taxas",
+      "url": "https://ajuda.infinitepay.io/hc/pt-br/articles/pix-taxas",
+      "content": "PIX no InfinitePay: recebimentos são instantâneos. Para empresas, podem existir taxas diferenciadas conforme volume e uso. Consulte seu painel para ver as tarifas vigentes."
+    },
+    {
+      "id": "maquininha-parcelamento",
+      "url": "https://ajuda.infinitepay.io/hc/pt-br/articles/parcelamento",
+      "content": "Parcelamento nas maquininhas: você pode parcelar em até 12x. O repasse pode ser antecipado com custo adicional. Verifique as condições no app."
+    },
+    {
+      "id": "estorno-chargeback",
+      "url": "https://ajuda.infinitepay.io/hc/pt-br/articles/chargeback",
+      "content": "Chargeback e estornos: em caso de contestação, reúna comprovantes, nota fiscal e logs de comprovante da venda. O prazo e etapas seguem regras da bandeira."
+    }
+  ]
+  
