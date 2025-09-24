@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type Redis from 'ioredis';
-import { REDIS } from '../../../infrastructure/redis/redis.provider';
+import { REDIS_CLIENT } from '../../../infrastructure/redis/redis.provider';
 import { RetrieverPort, RetrievedDoc } from '../domain/retrieval.port';
 
 @Injectable()
 export class RedisRetriever implements RetrieverPort {
-  constructor(@Inject(REDIS) private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private indexKey = 'docs:index';
   private docKey = (id: string) => `doc:${id}`;
