@@ -1,44 +1,51 @@
+import 'dotenv/config';
 import Redis from 'ioredis';
 
-const host = process.env.REDIS_HOST ?? 'localhost';
-const port = Number(process.env.REDIS_PORT ?? 6379);
-const password = process.env.REDIS_PASSWORD ?? '';
-const tlsEnabled = (process.env.REDIS_TLS ?? '').toLowerCase() === 'true';
-
-const redis = new Redis({
-  host,
-  port,
-  username: 'default',
-  password,
-  ...(tlsEnabled ? { tls: { servername: host } } : {}),
-  connectTimeout: 10_000,
-  keepAlive: 10_000,
-  lazyConnect: false,
-  maxRetriesPerRequest: null,
-  retryStrategy: (times) => Math.min(1000 * times, 5000),
-  enableOfflineQueue: true,
-  enableReadyCheck: true,
-});
-
-async function main() {
-  const docs: Record<string, string> = {
-    'kb:pix:taxas':
-      'Sobre sua dúvida: PIX no InfinitePay: recebimentos são instantâneos. Para empresas, podem existir taxas diferenciadas conforme volume e uso. Consulte seu painel para ver as tarifas vigentes.',
-    'kb:link:pagamento':
-      'Para receber via link de pagamento, acesse o painel, gere o link e compartilhe com seu cliente.',
-    'kb:maquininha:tarifas':
-      'As tarifas podem variar conforme volume e uso. Consulte seu painel para ver as tarifas vigentes.',
-  };
-
-  for (const [k, v] of Object.entries(docs)) {
-    await redis.set(k, v);
-  }
-
-  console.log(`Seeded ${Object.keys(docs).length} docs.`);
-  process.exit(0);
+function clientFromEnv() {
+  const host = process.env.REDIS_HOST ?? 'localhost';
+  const port = Number(process.env.REDIS_PORT ?? 6379);
+  const password = process.env.REDIS_PASSWORD;
+  const tls = String(process.env.REDIS_TLS ?? '').toLowerCase() === 'true';
+  return new Redis({
+    host, port, password,
+    username: 'default',
+    ...(tls ? { tls: { servername: host, minVersion: 'TLSv1.2' } } : {}),
+  });
 }
 
-main().catch((e) => {
-  console.error('Seed failed:', e);
+const INDEX_KEY = 'docs:index';
+const DOC = (id: string) => `doc:${id}`;
+
+async function seed() {
+  const redis = clientFromEnv();
+
+
+  await redis.del(INDEX_KEY);
+  await redis.lpush(INDEX_KEY, 'link_pagamento', 'pix_taxas', 'maquininha_tarifas');
+
+  await redis.hset(DOC('link_pagamento'), {
+    url: 'https://ajuda.infinitepay.io/hc/pt-br/articles/link-de-pagamento',
+    content:
+      'Para receber via link de pagamento, acesse o painel, gere o link e compartilhe com seu cliente.',
+  });
+
+  await redis.hset(DOC('pix_taxas'), {
+    url: 'https://ajuda.infinitepay.io/hc/pt-br/articles/pix-taxas',
+    content:
+      'Sobre as taxas de PIX: no InfinitePay, recebimentos são instantâneos. Para empresas, podem existir taxas diferenciadas conforme volume e uso. Consulte seu painel para ver as tarifas vigentes.',
+  });
+
+  await redis.hset(DOC('maquininha_tarifas'), {
+    url: 'https://ajuda.infinitepay.io/hc/pt-br/articles/tarifas-maquininha',
+    content:
+      'Tarifas da maquininha podem variar por bandeira e parcelamento. Confira a tabela de tarifas no painel.',
+  });
+
+  await redis.quit();
+  console.log('Seeded 3 docs (link_pagamento, pix_taxas, maquininha_tarifas).');
+}
+
+seed().catch((e) => {
+  console.error(e);
   process.exit(1);
 });
