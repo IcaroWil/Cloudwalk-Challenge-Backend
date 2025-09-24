@@ -13,6 +13,53 @@ function normalize(pt: string): string {
     .trim();
 }
 
+function stem(t: string): string {
+  let s = t;
+  s = s.replace(/(coes)$/g, 'cao'); 
+  s = s.replace(/(oes)$/g, 'ao');
+  s = s.replace(/(s|es)$/g, '');
+  s = s.replace(/(mente)$/g, '');
+  s = s.replace(/(r|ar|er|ir)$/g, ''); 
+  return s;
+}
+
+function tokenize(q: string): string[] {
+  return normalize(q).split(' ').filter(Boolean).map(stem);
+}
+
+function overlap(a: Set<string>, b: string[] | Set<string>) {
+  const bb = b instanceof Set ? b : new Set(b);
+  let k = 0; for (const t of bb) if (a.has(t)) k++;
+  return k;
+}
+
+const INTENT = {
+  link_pagamento: {
+    any: [
+      'link pagamento', 'link cobranca',
+      'gerar link', 'enviar link', 'receber link', 'cobrar link',
+      'link de pagar', 'link de receber',
+    ],
+    must: [
+      ['link','pagamento'],
+      ['gerar','link'],
+      ['enviar','link'],
+      ['receber','link'],
+    ],
+  },
+  pix_taxas: {
+    any: ['pix taxa', 'pix tarifas', 'taxa pix', 'tarifa pix', 'percentual pix', 'custo pix'],
+    must: [['pix','taxa'], ['pix','tarifa']],
+  },
+  maquininha_tarifas: {
+    any: [
+      'maquininha taxa', 'maquineta taxa', 'maquina cartao taxa',
+      'tarifas maquina', 'taxas maquininha', 'custo maquininha',
+    ],
+    must: [['maquininha','taxa'], ['maquina','taxa'], ['maquineta','taxa']],
+  },
+} as const;
+
 @Injectable()
 export class RedisRetriever implements RetrieverPort {
   constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
@@ -32,49 +79,47 @@ export class RedisRetriever implements RetrieverPort {
     return docs;
   }
 
+  private async fetchOne(id: keyof typeof INTENT): Promise<RetrievedDoc | null> {
+    const d = await this.redis.hgetall(this.docKey(id));
+    if (!d || (!d.url && !d.content)) return null;
+    return { id, url: d.url, content: d.content } as RetrievedDoc;
+  }
+
   async search(query: string, k = 3): Promise<RetrievedDoc[]> {
-    const q = normalize(query);
-    if (!q) return [];
+    const qTokens = tokenize(query);
+    if (!qTokens.length) return [];
+    const qSet = new Set(qTokens);
 
-    const tokens = new Set(q.split(' '));
+    const decide = async (id: keyof typeof INTENT) => {
+      const cfg = INTENT[id];
 
-    const hasAny = (...ws: string[]) => ws.some((w) => tokens.has(normalize(w)));
-    const hasAll = (...ws: string[]) => ws.every((w) => tokens.has(normalize(w)));
+      const anyHit = cfg.any.some(phrase => overlap(qSet, tokenize(phrase)) >= 2);
+      const mustHit = cfg.must.some(group => overlap(qSet, group.map(stem)) >= group.length);
 
-    if (hasAll('link', 'pagamento') || hasAny('gerar', 'link') && hasAny('receber', 'pagamento')) {
-      const d = await this.fetchOne('link_pagamento');
-      if (d) return [d];
-    }
+      if (anyHit || mustHit) {
+        const d = await this.fetchOne(id);
+        if (d) return [d];
+      }
+      return null;
+    };
 
-    if (hasAny('pix') && hasAny('taxa', 'taxas', 'tarifa', 'tarifas')) {
-      const d = await this.fetchOne('pix_taxas');
-      if (d) return [d];
-    }
-
-    if (hasAny('maquininha', 'maquina', 'maquineta', 'maquininhas') && hasAny('taxa', 'taxas', 'tarifa', 'tarifas')) {
-      const d = await this.fetchOne('maquininha_tarifas');
-      if (d) return [d];
+    for (const id of ['link_pagamento','pix_taxas','maquininha_tarifas'] as const) {
+      const got = await decide(id);
+      if (got) return got;
     }
 
     const docs = await this.getAllDocs();
     if (!docs.length) return [];
 
-    const qTokens = q.split(' ').filter(Boolean);
     const ranked = docs
-      .map((d) => {
-        const contentN = normalize(d.content);
-        const score = qTokens.reduce((acc, t) => acc + (contentN.includes(t) ? 1 : 0), 0);
+      .map(d => {
+        const contentTokens = new Set(tokenize(d.content));
+        const score = overlap(contentTokens, qSet);
         return { ...d, score };
       })
       .sort((a, b) => b.score - a.score);
 
-    const top = ranked.filter((d) => d.score > 0).slice(0, k).map(({ score, ...rest }) => rest);
+    const top = ranked.filter(d => d.score > 0).slice(0, k).map(({ score, ...rest }) => rest);
     return top.length ? top : docs.slice(0, Math.min(k, docs.length));
-  }
-
-  private async fetchOne(id: string): Promise<RetrievedDoc | null> {
-    const d = await this.redis.hgetall(this.docKey(id));
-    if (!d || (!d.url && !d.content)) return null;
-    return { id, url: d.url, content: d.content } as RetrievedDoc;
   }
 }
