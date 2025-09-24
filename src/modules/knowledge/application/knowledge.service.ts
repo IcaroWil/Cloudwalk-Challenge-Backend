@@ -25,8 +25,10 @@ export class KnowledgeService {
     const snippet =
       best.content.length > 280 ? best.content.slice(0, 280) + '…' : best.content;
 
+    const fonte = best.url ? `\n\nFonte: ${best.url}` : '';
+
     return {
-      response: `Sobre sua dúvida: ${snippet}`,
+      response: `Sobre sua dúvida: ${snippet}${fonte}`,
       source: best.url,
       execution_time,
     };
