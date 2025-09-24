@@ -1,29 +1,44 @@
-import 'reflect-metadata';
-import * as fs from 'fs';
-import * as path from 'path';
 import Redis from 'ioredis';
 
-(async () => {
-  const file = path.resolve(__dirname, '../data/knowledge.docs.json');
-  const docs = JSON.parse(fs.readFileSync(file, 'utf8')) as Array<{id:string; url:string; content:string}>;
+const host = process.env.REDIS_HOST ?? 'localhost';
+const port = Number(process.env.REDIS_PORT ?? 6379);
+const password = process.env.REDIS_PASSWORD ?? '';
+const tlsEnabled = (process.env.REDIS_TLS ?? '').toLowerCase() === 'true';
 
-  const redis = new Redis({
-    host: process.env.REDIS_HOST ?? 'localhost',
-    port: Number(process.env.REDIS_PORT ?? 6379),
-    password: process.env.REDIS_PASSWORD || undefined,
-  });
+const redis = new Redis({
+  host,
+  port,
+  username: 'default',
+  password,
+  ...(tlsEnabled ? { tls: { servername: host } } : {}),
+  connectTimeout: 10_000,
+  keepAlive: 10_000,
+  lazyConnect: false,
+  maxRetriesPerRequest: null,
+  retryStrategy: (times) => Math.min(1000 * times, 5000),
+  enableOfflineQueue: true,
+  enableReadyCheck: true,
+});
 
-  const indexKey = 'docs:index';
-  await redis.del(indexKey);
+async function main() {
+  const docs: Record<string, string> = {
+    'kb:pix:taxas':
+      'Sobre sua dúvida: PIX no InfinitePay: recebimentos são instantâneos. Para empresas, podem existir taxas diferenciadas conforme volume e uso. Consulte seu painel para ver as tarifas vigentes.',
+    'kb:link:pagamento':
+      'Para receber via link de pagamento, acesse o painel, gere o link e compartilhe com seu cliente.',
+    'kb:maquininha:tarifas':
+      'As tarifas podem variar conforme volume e uso. Consulte seu painel para ver as tarifas vigentes.',
+  };
 
-  for (const d of docs) {
-    await redis.rpush(indexKey, d.id);
-    await redis.hset(`doc:${d.id}`, { url: d.url, content: d.content });
+  for (const [k, v] of Object.entries(docs)) {
+    await redis.set(k, v);
   }
 
-  console.log(`Seeded ${docs.length} docs.`);
-  await redis.quit();
-})().catch((e) => {
-  console.error(e);
+  console.log(`Seeded ${Object.keys(docs).length} docs.`);
+  process.exit(0);
+}
+
+main().catch((e) => {
+  console.error('Seed failed:', e);
   process.exit(1);
 });
