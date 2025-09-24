@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import type Redis from 'ioredis';
-import { REDIS } from '../../../infrastructure/redis/redis.provider';
+import { REDIS_CLIENT } from '../../../infrastructure/redis/redis.provider';
 import { HistoryRepository } from '../domain/history.repository';
 import { Message } from '../domain/message';
 
 @Injectable()
 export class HistoryRedisRepository implements HistoryRepository {
-  constructor(@Inject(REDIS) private readonly redis: Redis) {}
+  constructor(@Inject(REDIS_CLIENT) private readonly redis: Redis) {}
 
   private key(id: string) { return `history:${id}`; }
 
