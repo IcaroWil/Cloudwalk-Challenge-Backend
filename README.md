@@ -164,3 +164,6 @@ REDIS_HOST=localhost   # docker-compose: "redis" | k8s: "redis"
 REDIS_PORT=6379
 REDIS_PASSWORD=
 ```
+
+### Deploy Render
+`https://cloudwalk-challenge-backend.onrender.com`
