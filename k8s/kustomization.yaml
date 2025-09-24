@@ -13,3 +13,6 @@ resources:
   - backend-service.yaml
   - ingress.yaml
   - hpa.yaml
+  - frontend-deployment.yaml
+  - frontend-service.yaml
+  - frontend-ingress.yaml
