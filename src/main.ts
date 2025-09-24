@@ -24,6 +24,7 @@ async function bootstrap() {
       'http://localhost:8080',
       'http://localhost:5173',
       'http://frontend.local',
+      'https://cloudwalk-challenge-frontend-f1e2opzpu-icarowils-projects.vercel.app',
     ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
