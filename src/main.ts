@@ -19,6 +19,17 @@ async function bootstrap() {
     whitelist: true, transform: true, forbidNonWhitelisted: true,
   }));
 
+  app.enableCors({
+    origin: [
+      'http://localhost:8080',
+      'http://localhost:5173',
+      'http://frontend.local',
+    ],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
+    credentials: false,
+  });
+
   const config = app.get(ConfigService);
   const port = config.get<number>('PORT') ?? 3000;
 
