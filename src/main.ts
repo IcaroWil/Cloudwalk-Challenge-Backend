@@ -19,13 +19,21 @@ async function bootstrap() {
     whitelist: true, transform: true, forbidNonWhitelisted: true,
   }));
 
+  const allowedOrigins: (string | RegExp)[] = [
+    'http://localhost:8080',
+    'http://localhost:5173',
+    'http://frontend.local',
+    /\.vercel\.app$/,
+  ];
+  
   app.enableCors({
-    origin: [
-      'http://localhost:8080',
-      'http://localhost:5173',
-      'http://frontend.local',
-      'https://cloudwalk-challenge-frontend-f1e2opzpu-icarowils-projects.vercel.app',
-    ],
+    origin: (origin, cb) => {
+      if (!origin) return cb(null, true);
+      const ok = allowedOrigins.some((o) =>
+        o instanceof RegExp ? o.test(origin) : o === origin,
+      );
+      return ok ? cb(null, true) : cb(new Error('Not allowed by CORS'));
+    },
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     allowedHeaders: 'Content-Type, Authorization, X-Requested-With',
     credentials: false,
